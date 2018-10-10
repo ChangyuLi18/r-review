@@ -1,0 +1,91 @@
+---
+title: "Voter Turnout Report"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# Set knitr options
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+
+# Load libraries
+library(knitr)
+library(tidyr)
+library(ggplot2)
+library(GGally)
+
+# In this "setup" chunk, `source()` the `data-prep.R` file 
+# The `all_data` object should now be available
+source("data-prep.R")
+```
+
+## Voter Turnout
+This is a brief report on voter turnout in each Washington State county in 2017. 
+
+### Data Structure
+Before exploring the data, it's important to understand how it's structured. For example:
+
+The data has
+
+- `r nrow(all_data)` rows
+- `r ncol(all_data)` columns
+
+Below is a table of descriptive statistics about each column.
+
+```{r}
+# Compute and format the summary statistics -- thanks, SO
+# https://stackoverflow.com/questions/30520350/convert-summary-to-data-frame
+formatted <- do.call(cbind, lapply(all_data, summary))
+
+# Pass the formatted summary statistics to the `kable()` function
+kable(formatted)
+```
+
+### Univariate analysis: how is each variable distributed?
+Below is a histogram of each variable.
+
+```{r}
+# Use tidyr to gather the columns into two colums: feature and value
+# Then use ggplot's `facet()` method to create small multiples
+long_data <- all_data %>% 
+  gather(key = "feature", value = "value", -county)
+
+# Create a histogram
+ggplot(long_data) +
+  geom_histogram(mapping = aes(x = value)) +
+  facet_wrap(~feature)
+```
+
+Unfortunately, the different orders of magnitude preclude meaningful information from being expressed in a number of columns. Below are the violin plots for percentage of males/females in each county.
+
+```{r}
+# Select just the "percentage" columns
+perc_data <- long_data %>% 
+  filter(grepl("perc", feature)) 
+
+# Create a violin plot
+ggplot(perc_data) +
+  geom_violin(mapping = aes(x = feature, y = value)) 
+```
+
+The obvious question is, which counties have the highest percentage of voters?
+
+```{r}
+# Graph the percentage of voters in each county:
+# To do this, the data frame needs to be sorted -- thanks, SO
+# https://stackoverflow.com/questions/5208679/order-bars-in-ggplot2-bar-graph
+all_data <- all_data %>% 
+  mutate(total_percentage = total.voted / total.population) %>% 
+  arrange(total_percentage)
+
+ggplot(all_data) +
+  geom_col(mapping = aes(x = county, y = total_percentage)) +
+  scale_x_discrete(limits = all_data$county) +
+  coord_flip()
+```
+
+### Multivariate analysis: which variables are co-related?
+Below is a scatterplot matrix of the quantitative variables.
+
+```{r}
+ggpairs(all_data %>% select(-county))
+```
